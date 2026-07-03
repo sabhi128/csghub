@@ -197,6 +197,7 @@ export const dataPipelines = {
   "sure": "確定",
   "PleaseSelectTime": "請選擇時間",
   "fileUpload": "文件上傳",
+  "fileUploadHint": "文件數據導入不在本頁直接上傳：請先選擇下方「數據流向」（目標數據集），再點擊「跳轉鏈接」前往 CSGHub 數據集頁面完成文件上傳。",
   "jumpLink": "跳轉鏈接",
   "linkSuccess": "連接成功",
   "linkError": "連接失敗",

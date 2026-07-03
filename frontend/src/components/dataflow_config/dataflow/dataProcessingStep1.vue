@@ -120,26 +120,37 @@
       <div class="p-[12px]">
         <el-row :gutter="20" class="border rounded-md p-[10px]">
           <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-            <el-form-item>
+            <el-form-item prop="export_repo_id">
               <template #label>
                 <p class="text-gray-500 text-xs mt-[12px]">{{ t("dataPipelines.dataFlow") }}</p>
               </template>
               <el-select
-                v-model="subForm.repo_id"
+                v-model="subForm.export_repo_id"
                 style="width: 100%"
+                clearable
                 :placeholder="t('dataPipelines.toSel') + t('dataPipelines.dataFlow')"
-                :disabled="
-                  taskUseType != 'tool' ||
-                  (taskUseType == 'tool' && seltool.io_requirement != 'output_only')
-                "
+                @change="onDataFlowChange"
               >
                 <el-option
-                  v-for="item in dataSourceList"
+                  v-for="item in dataFlowList"
                   :key="item.id"
                   :label="item.name"
                   :value="item.path"
                 />
               </el-select>
+            </el-form-item>
+          </el-col>
+
+          <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+            <el-form-item prop="export_branch_name">
+              <template #label>
+                <p class="text-gray-500 text-xs mt-[12px]">{{ t("dataPipelines.dataFlowBranch") }}</p>
+              </template>
+              <el-input
+                v-model="subForm.export_branch_name"
+                :placeholder="`${t('dataPipelines.toInput')}${t('dataPipelines.dataFlowBranch')}`"
+                clearable
+              />
             </el-form-item>
           </el-col>
 
@@ -243,6 +254,8 @@ const subForm = inject(
     owner: "",
     repo_id: route.query.datasetPath || "",
     branch: "",
+    export_repo_id: "",
+    export_branch_name: "",
     name: route.query.templateId ? route.query.templateId * 1 : 0,
     type: "",
     process: [],
@@ -290,6 +303,20 @@ const rules = ref({
       trigger: 'change'
     }
   ],
+  export_repo_id: [
+    {
+      required: true,
+      message: `${t('dataPipelines.toSel')}${t('dataPipelines.dataFlow')}`,
+      trigger: 'change'
+    }
+  ],
+  export_branch_name: [
+    {
+      required: true,
+      message: `${t('dataPipelines.toInput')}${t('dataPipelines.dataFlowBranch')}`,
+      trigger: 'blur'
+    }
+  ],
   namespace_uuid: [
     {
       validator: (rule, value, callback) => {
@@ -326,11 +353,28 @@ const rules = ref({
 })
 
 const dataSourceList = ref([])
+// 数据流向：固定为当前用户的个人数据集（不含组织数据集）
+const dataFlowList = ref([])
 const branchList = ref([])
 const templateList = ref([])
 
+// 加载当前用户个人数据集，作为数据流向候选（与来源 owner 解耦）
+const loadDataFlowList = async () => {
+  if (!userStore.username) return
+  const url = `/user/${userStore.username}/datasets?per=50&page=1`
+  const { data } = await useFetchApi(url).get().json()
+  dataFlowList.value = data.value && data.value.data ? data.value.data : []
+}
+
+// 选中数据流向后，记录其默认分支（后端上传时自动版本化 v1/v2）
+const onDataFlowChange = (val) => {
+  const item = dataFlowList.value.find((d) => d.path === val)
+  subForm.value.export_branch_name = item ? (item.default_branch || 'main') : ''
+}
+
 onMounted(() => {
   updateOwner()
+  loadDataFlowList()
   getTemplateData()
   // getToolsData()
   if (route.query.datasetPath) {
@@ -348,6 +392,7 @@ onMounted(() => {
 
 watch([() => userStore.username, () => route.query.datasetPath], () => {
   updateOwner()
+  loadDataFlowList()
 })
 
 // 获取模版详情

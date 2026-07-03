@@ -198,23 +198,44 @@
                 :lg="12"
                 :xl="12"
               >
-                <el-form-item>
+                <el-form-item prop="export_repo_id">
                   <template #label>
                     <p class="text-gray-500 text-xs mt-[12px]">{{ t('dataPipelines.dataFlow') }}</p>
                   </template>
                   <el-select
-                    v-model="form.repo_id"
+                    v-model="form.export_repo_id"
                     style="width: 100%"
-                    :placeholder="t('dataPipelines.toSel')"
-                    :disabled="seltool?.io_requirement !== 'output_only'"
+                    clearable
+                    :placeholder="t('dataPipelines.toSel') + t('dataPipelines.dataFlow')"
                   >
                     <el-option
-                      v-for="item in dataSourceList"
+                      v-for="item in dataFlowList"
                       :key="item.id"
                       :label="item.name"
                       :value="item.path"
                     />
                   </el-select>
+                </el-form-item>
+              </el-col>
+
+              <el-col
+                v-if="['all', 'output_only'].includes(seltool?.io_requirement)"
+                :xs="24"
+                :sm="24"
+                :md="12"
+                :lg="12"
+                :xl="12"
+              >
+                <el-form-item prop="export_branch_name">
+                  <template #label>
+                    <p class="text-gray-500 text-xs mt-[12px]">{{ t('dataPipelines.dataFlowBranch') }}</p>
+                  </template>
+                  <el-input
+                    v-model="form.export_branch_name"
+                    style="width: 100%"
+                    clearable
+                    :placeholder="`${t('dataPipelines.toInput')}${t('dataPipelines.dataFlowBranch')}`"
+                  />
                 </el-form-item>
               </el-col>
 
@@ -331,20 +352,32 @@
         </el-form-item>
         <el-form-item
           :label="t('dataPipelines.dataFlow')"
+          prop="export_repo_id"
         >
           <el-select
-            v-model="form.repo_id"
+            v-model="form.export_repo_id"
             style="width: 100%"
-            :placeholder="t('dataPipelines.toSel')"
-            disabled
+            clearable
+            :placeholder="t('dataPipelines.toSel') + t('dataPipelines.dataFlow')"
           >
             <el-option
-              v-for="item in dataSourceList"
+              v-for="item in dataFlowList"
               :key="item.id"
               :label="item.name"
               :value="item.path"
             />
           </el-select>
+        </el-form-item>
+        <el-form-item
+          :label="t('dataPipelines.dataFlowBranch')"
+          prop="export_branch_name"
+        >
+          <el-input
+            v-model="form.export_branch_name"
+            style="width: 100%"
+            clearable
+            :placeholder="`${t('dataPipelines.toInput')}${t('dataPipelines.dataFlowBranch')}`"
+          />
         </el-form-item>
         <el-form-item
           :label="t('dataPipelines.taskTemplate')"
@@ -756,6 +789,8 @@
   const userStore = useUserStore()
   const { t, locale } = useI18n()
   const dataSourceList = ref([])
+  // 数据流向：固定为当前用户的个人数据集（不含组织数据集）
+  const dataFlowList = ref([])
   const branchList = ref([])
   const templateList = ref([])
   const subLoading = ref(false)
@@ -780,6 +815,8 @@
     owner: '',
     repo_id: route.query.datasetPath || '',
     branch: '',
+    export_repo_id: '',
+    export_branch_name: '',
     selTemplate: route.query.templateId ? route.query.templateId * 1 : 0,
     selToolIndex: 0,
     process: [],
@@ -833,19 +870,78 @@
     ],
     repo_id: [
       {
-        required: true,
-        message: `${t('dataPipelines.toSel')}${t('dataPipelines.dataSource')}`,
+        validator: (rule, value, callback) => {
+          // 仅当任务有输入来源时才必填：工具任务需 io_requirement 为 all/input_only，或非工具(ops)任务
+          const needsInput =
+            taskUseType.value !== 'tool' ||
+            ['all', 'input_only'].includes(seltool.value?.io_requirement)
+          if (needsInput && !value) {
+            callback(
+              new Error(`${t('dataPipelines.toSel')}${t('dataPipelines.dataSource')}`)
+            )
+          } else {
+            callback()
+          }
+        },
         trigger: 'change'
       }
     ],
     branch: [
       {
-        required: true,
-        message: `${t('dataPipelines.toSel')}${t(
-          'dataPipelines.dataSourceBranch'
-        )}`,
+        validator: (rule, value, callback) => {
+          const needsInput =
+            taskUseType.value !== 'tool' ||
+            ['all', 'input_only'].includes(seltool.value?.io_requirement)
+          if (needsInput && !value) {
+            callback(
+              new Error(
+                `${t('dataPipelines.toSel')}${t('dataPipelines.dataSourceBranch')}`
+              )
+            )
+          } else {
+            callback()
+          }
+        },
         trigger: 'change'
       }
+    ],
+    export_repo_id: [
+      {
+        validator: (rule, value, callback) => {
+          // 仅当任务有数据产出时才必填：工具任务需 io_requirement 为 all/output_only，或非工具(ops)任务
+          const needsOutput =
+            taskUseType.value !== 'tool' ||
+            ['all', 'output_only'].includes(seltool.value?.io_requirement)
+          if (needsOutput && !value) {
+            callback(
+              new Error(`${t('dataPipelines.toSel')}${t('dataPipelines.dataFlow')}`)
+            )
+          } else {
+            callback()
+          }
+        },
+        trigger: 'change',
+      },
+    ],
+    export_branch_name: [
+      {
+        validator: (rule, value, callback) => {
+          // 与数据流向一致：仅当任务有数据产出时才必填分支
+          const needsOutput =
+            taskUseType.value !== 'tool' ||
+            ['all', 'output_only'].includes(seltool.value?.io_requirement)
+          if (needsOutput && !value) {
+            callback(
+              new Error(
+                `${t('dataPipelines.toInput')}${t('dataPipelines.dataFlowBranch')}`
+              )
+            )
+          } else {
+            callback()
+          }
+        },
+        trigger: 'blur',
+      },
     ],
     text_keys: [
       {
@@ -913,7 +1009,7 @@
 
   const namespaces = () => {
     let namespaces = userStore.orgs.map((org) => org.path)
-    namespaces.unshift(userStore.username)
+    if (userStore.username) namespaces.unshift(userStore.username)
     return namespaces
   }
 
@@ -1059,8 +1155,17 @@
     }
   }
 
+  // 加载当前用户个人数据集，作为数据流向候选（与来源 owner 解耦）
+  const loadDataFlowList = async () => {
+    if (!userStore.username) return
+    const url = `/user/${userStore.username}/datasets?per=50&page=1`
+    const { data } = await useFetchApi(url).get().json()
+    dataFlowList.value = data.value && data.value.data ? data.value.data : []
+  }
+
   watch([() => userStore.username, () => route.query.datasetPath], () => {
     updateOwner()
+    loadDataFlowList()
   })
   const changeTaskType = async () => {
     if (taskUseType.value === 'ops') {
@@ -1407,6 +1512,7 @@
 
   onMounted(() => {
     updateOwner()
+    loadDataFlowList()
     getTemplateData()
     getToolsData()
     if (route.query.datasetPath) {
