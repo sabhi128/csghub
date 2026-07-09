@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { mount } from "@vue/test-utils";
+import { mount, flushPromises } from "@vue/test-utils";
 import ParquetViewer from "../../datasets/ParquetViewer.vue";
 
 // Mock vue-i18n
@@ -75,7 +75,7 @@ describe("ParquetViewer", () => {
   });
 
   it("processes table data correctly", async () => {
-    await wrapper.vm.$nextTick();
+    await flushPromises();
     expect(wrapper.vm.tableData).toEqual([
       { id: 1, text: "First example text", label: "positive" },
       { id: 2, text: "Second example text", label: "negative" }
@@ -83,14 +83,17 @@ describe("ParquetViewer", () => {
   });
 
   it("updates subset and split variables on dropdown changes", async () => {
+    await flushPromises();
     // Change subset
     await wrapper.vm.changeSubsetName("other_subset");
+    await flushPromises();
     expect(wrapper.vm.subset).toBe("other_subset");
     expect(wrapper.vm.split).toBe("train");
     expect(wrapper.vm.numSplits).toBe(1);
 
     // Change split
     await wrapper.vm.changeSplitName("train");
+    await flushPromises();
     expect(wrapper.vm.split).toBe("train");
   });
 });
