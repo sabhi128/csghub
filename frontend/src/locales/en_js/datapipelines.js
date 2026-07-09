@@ -197,6 +197,7 @@ export const dataPipelines = {
   "sure": "Confirm",
   "PleaseSelectTime": "Please Select Time",
   "fileUpload": "File Upload",
+  "fileUploadHint": "Files are not uploaded on this page. Select a Data Flow (target dataset) below, then click \"Jump Link\" to upload your files on the CSGHub dataset page.",
   "jumpLink": "Jump Link",
   "linkSuccess": "Connection Successful",
   "linkError": "Connection Failed",

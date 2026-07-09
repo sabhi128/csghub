@@ -28,7 +28,7 @@
             @change="valueChange"
           >
             <el-option
-              v-for="item in dataList"
+              v-for="item in typeFilterOptions"
               :key="item.id"
               :label="item.name"
               :value="item.id"
@@ -338,7 +338,7 @@
 
 <script setup>
 import { useRouter } from "vue-router";
-import { ref, reactive, onMounted, provide } from "vue";
+import { ref, reactive, onMounted, provide, computed } from "vue";
 import { ElMessage, ElLoading } from "element-plus";
 import useFetchApi from "../../../../packs/useFetchApi";
 import { useI18n } from "vue-i18n";
@@ -358,8 +358,12 @@ const formInline = reactive({
 });
 // 总数
 const total = ref(0);
-// 数据源类型列表
+// 数据源类型列表（用于表格图标/名称映射，保持完整）
 const dataList = ref([]);
+// 类型筛选下拉选项：去掉 File(id=3)
+const typeFilterOptions = computed(() =>
+  dataList.value.filter((item) => item.id !== 3)
+);
 // 详情数据
 const dataSource = ref([]);
 provide("dataSource", dataSource);

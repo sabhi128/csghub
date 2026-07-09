@@ -550,6 +550,14 @@
         {{ t("dataPipelines.fileUpload") }}
       </p>
 
+      <el-alert
+        class="mt-[12px]"
+        type="info"
+        :closable="false"
+        show-icon
+        :title="t('dataPipelines.fileUploadHint')"
+      />
+
       <el-form label-position="top" :model="formInline">
         <el-row :gutter="20" class="mt-[16px]">
           <el-col :xs="24" :sm="24" :md="24" :lg="24" :xl="24">
@@ -643,7 +651,7 @@
 
 <script setup>
 import { useRouter, useRoute } from "vue-router";
-import { ref, onMounted, reactive, computed } from "vue";
+import { ref, onMounted, reactive, computed, watch } from "vue";
 import { ElMessage, ElLoading } from "element-plus";
 import useUserStore from "@/stores/UserStore";
 import useFetchApi from "../../../../packs/useFetchApi";
@@ -979,6 +987,14 @@ onMounted(() => {
   changeTaskType();
 });
 
+// 用户名就绪/变化后，重新加载当前用户个人数据集（数据流向候选）
+watch(
+  () => userStore.username,
+  (name) => {
+    if (name) getSelListData();
+  }
+);
+
 /**
  * 测试链接接口
  */
@@ -1129,10 +1145,11 @@ const testSql = async () => {
 };
 
 const getSelListData = async (type) => {
-  // let url = `/user/${form.value.owner}/datasets?per=50&page=1`;
-  // if (form.value.owner !== userStore.username) {
-  //   url = `/organization/${form.value.owner}/datasets?current_user=${userStore.username}&per=50&page=1`;
-  // }
+  // 数据流向固定为当前登录用户的个人数据集（不含组织数据集）
+  if (!userStore.username) {
+    selListData.value = [];
+    return;
+  }
   let options = {
     headers: {
       Authorization: `Bearer ${cookies.get("user_token")}`,
@@ -1147,8 +1164,7 @@ const getSelListData = async (type) => {
   )
     .get()
     .json();
-  console.log(data, "datadatadatadatadatadata");
-  selListData.value = data.value.data;
+  selListData.value = data.value && data.value.data ? data.value.data : [];
 };
 
 /**

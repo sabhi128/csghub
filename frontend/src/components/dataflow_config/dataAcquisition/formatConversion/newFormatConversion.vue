@@ -50,20 +50,26 @@
           </el-form-item>
         </el-col>
         <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
-          <el-form-item prop="des" class="mt-[12px]">
+          <el-form-item prop="owner" class="mt-[12px]">
             <template #label>
               <p class="text-gray-500 text-xs">
-                {{ t("dataPipelines.taskDescription") }}
+                {{ t("dataPipelines.dataOwner") }}
               </p>
             </template>
-            <el-input
-              v-model="form.des"
-              :placeholder="`${t('dataPipelines.toInput')}${t(
-                'dataPipelines.taskDescription'
+            <el-select
+              v-model="form.owner"
+              :placeholder="`${t('dataPipelines.toSel')}${t(
+                'dataPipelines.dataOwner'
               )}`"
-              clearable
+              @change="getSelListData(true)"
             >
-            </el-input>
+              <el-option
+                v-for="item in ownerPathOptions"
+                :key="item"
+                :label="item"
+                :value="item"
+              />
+            </el-select>
           </el-form-item>
         </el-col>
 
@@ -108,6 +114,24 @@
                 :value="item.name"
               />
             </el-select>
+          </el-form-item>
+        </el-col>
+
+        <el-col :xs="24" :sm="24" :md="12" :lg="12" :xl="12">
+          <el-form-item prop="des" class="mt-[12px]">
+            <template #label>
+              <p class="text-gray-500 text-xs">
+                {{ t("dataPipelines.taskDescription") }}
+              </p>
+            </template>
+            <el-input
+              v-model="form.des"
+              :placeholder="`${t('dataPipelines.toInput')}${t(
+                'dataPipelines.taskDescription'
+              )}`"
+              clearable
+            >
+            </el-input>
           </el-form-item>
         </el-col>
       </el-row>
@@ -219,7 +243,7 @@
               @change="selListDataChange"
             >
               <el-option
-                v-for="item in selListData"
+                v-for="item in dataFlowList"
                 :label="item.name"
                 :value="item.path"
               />
@@ -326,13 +350,22 @@ const userStore = useUserStore();
 const spaceResourceFieldsRef = ref(null);
 const taskNamespaceFieldsRef = ref(null);
 
+// 数据所有者可选项（个人 + 所属组织），借鉴数据处理任务创建
+const ownerPathOptions = ref([]);
+
 const onNamespacesLoaded = (payload) => {
   applyNamespaceFromLoaded(form, payload);
+  ownerPathOptions.value = payload?.ownerPathOptions || [];
+  if (!form.value.owner && ownerPathOptions.value.length) {
+    form.value.owner = ownerPathOptions.value[0];
+    getSelListData(true);
+  }
 };
 
 // 表单
 const form = ref({
   skip_meta: false,
+  owner: "",
   namespace_type: "personal",
   namespace_uuid: "",
   cluster_id: "",
@@ -358,6 +391,13 @@ const rules = ref({
         "dataPipelines.taskDescription"
       )}`,
       trigger: "blur",
+    },
+  ],
+  owner: [
+    {
+      required: true,
+      message: `${t("dataPipelines.toSel")}${t("dataPipelines.dataOwner")}`,
+      trigger: "change",
     },
   ],
   from_csg_hub_repo_id: [
@@ -408,8 +448,10 @@ const rules = ref({
   ],
 });
 
-// 数据源下拉框列表
+// 数据源下拉框列表（数据来源，按 owner 加载，可含组织）
 const selListData = ref([]);
+// 数据流向下拉框列表（固定为当前用户的个人数据集，不含组织）
+const dataFlowList = ref([]);
 const csg_hub_dataset_info = ref({});
 // 格式转换
 const dataObj = ref([]);
@@ -464,17 +506,22 @@ const handleSourceChange = (groupKey) => {
 };
 
 onMounted(() => {
-  getSelListData();
+  updateOwner();
+  loadDataFlowList();
   getFormatTypeList();
   fetchUserToken();
 });
 
+watch([() => userStore.username, () => route.query.datasetPath], () => {
+  updateOwner();
+  loadDataFlowList();
+});
+
 const fetchUserToken = async () => {
-  // if (!userStore.username) return
+  if (!userStore.username) return;
 
   const { data } = await useFetchApi(
-    // ${userStore.username}
-      `/user/${userStore.username}/tokens?app=git`
+    `/user/${userStore.username}/tokens?app=git`
   ).json();
   if (data.value) {
     const body = data.value;
@@ -517,37 +564,27 @@ const fetchBranchList = async (val) => {
  * 查询数据流向分支
  * @param val
  */
-const selListDataChange = async (val) => {
+const selListDataChange = (val) => {
   if (val) {
-    let params = selListData.value.find((item) => item.path === val);
-    form.value.to_csg_hub_dataset_name = params.name;
-    form.value.to_csg_hub_dataset_id = params.id;
+    let params = dataFlowList.value.find((item) => item.path === val);
+    form.value.to_csg_hub_dataset_name = params ? params.name : "";
+    form.value.to_csg_hub_dataset_id = params ? params.id : "";
+    // 数据流向分支取所选数据集默认分支（后端上传时自动版本化 v1/v2）
+    form.value.to_csg_hub_dataset_default_branch = params
+      ? params.default_branch || "main"
+      : "";
   } else {
     form.value.to_csg_hub_dataset_name = "";
     form.value.to_csg_hub_dataset_id = "";
-  }
-  form.value.to_csg_hub_dataset_default_branch = "";
-
-  const url = `/datasets/${form.value.to_csg_hub_repo_id}/branches`;
-  let options = {
-    headers: {
-      Authorization: `Bearer ${cookies.get("user_token")}`,
-      cookie: `previous_path=${cookies.get(
-        "previous_path"
-      )};user_token=${cookies.get("user_token")};`,
-    },
-  };
-  const { data } = await useFetchApi(url, options).get().json();
-  if (data.value && data.value.data) {
-    to_branchList.value = data.value.data;
+    form.value.to_csg_hub_dataset_default_branch = "";
   }
 };
 
 /**
- * 获取数据流向
- * @param type
+ * 加载当前用户个人数据集，作为数据流向候选（不含组织，与来源 owner 解耦）
  */
-const getSelListData = async (type) => {
+const loadDataFlowList = async () => {
+  if (!userStore.username) return;
   let options = {
     headers: {
       Authorization: `Bearer ${cookies.get("user_token")}`,
@@ -556,14 +593,55 @@ const getSelListData = async (type) => {
       )};user_token=${cookies.get("user_token")};`,
     },
   };
-  const { data } = await useFetchApi(
-    `/user/${userStore.username}/datasets?per=50&page=1`,
-    options
-  )
-    .get()
-    .json();
-  console.log(data, "datadatadatadatadatadata");
-  selListData.value = data.value.data;
+  const url = `/user/${userStore.username}/datasets?per=50&page=1`;
+  const { data } = await useFetchApi(url, options).get().json();
+  dataFlowList.value = data.value && data.value.data ? data.value.data : [];
+};
+
+/**
+ * 根据数据所有者获取数据集列表（数据来源 / 数据流向共用），借鉴数据处理任务创建
+ * @param type 为真时表示所有者切换，需清空已选数据来源
+ */
+const getSelListData = async (type) => {
+  if (!form.value.owner) {
+    selListData.value = [];
+    return;
+  }
+  let options = {
+    headers: {
+      Authorization: `Bearer ${cookies.get("user_token")}`,
+      cookie: `previous_path=${cookies.get(
+        "previous_path"
+      )};user_token=${cookies.get("user_token")};`,
+    },
+  };
+  let url = `/user/${form.value.owner}/datasets?per=50&page=1`;
+  if (form.value.owner !== userStore.username) {
+    url = `/organization/${form.value.owner}/datasets?current_user=${userStore.username}&per=50&page=1`;
+  }
+  const { data } = await useFetchApi(url, options).get().json();
+  if (data.value && data.value.data) {
+    selListData.value = data.value.data;
+  } else {
+    selListData.value = [];
+  }
+  if (type) {
+    form.value.from_csg_hub_repo_id = "";
+    form.value.from_csg_hub_dataset_branch = "";
+    branchList.value = [];
+  }
+};
+
+/**
+ * 初始化数据所有者（默认当前用户 / 路由携带的数据集归属）
+ */
+const updateOwner = () => {
+  form.value.owner = route.query.datasetPath
+    ? route.query.datasetPath.split("/")[0]
+    : userStore.username;
+  if (form.value.owner) {
+    getSelListData();
+  }
 };
 
 /**
