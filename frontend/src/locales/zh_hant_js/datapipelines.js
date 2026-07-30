@@ -250,6 +250,7 @@ export const dataPipelines = {
   "processingText": "處理字段",
   "inProgress": "處理中",
   "completed": "已完成",
+  "partialSuccessTip": "存在處理失敗的檔案，請查閱日誌查看詳情！",
   "dataSource": "數據來源",
   "dataSourceBranch": "數據來源分支",
   "dataFlow": "數據流向",

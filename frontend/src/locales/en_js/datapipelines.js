@@ -250,6 +250,7 @@ export const dataPipelines = {
   "processingText": "Processing Text",
   "inProgress": "In Progress",
   "completed": "Completed",
+  "partialSuccessTip": "Some files failed to convert. Please check the logs for details.",
   "dataSource": "Data Source",
   "dataSourceBranch": "Data Source Branch",
   "dataFlow": "Data Flow",

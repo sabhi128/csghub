@@ -90,7 +90,7 @@
             width="180"
           >
             <template #default="scope">
-              <div>
+              <div class="flex items-center justify-center gap-1">
                 <el-tag
                   :type="
                     taskStatusVal.find(
@@ -104,6 +104,16 @@
                     )?.label
                   }}
                 </el-tag>
+                <el-tooltip
+                  v-if="scope.row.task_status === 5"
+                  effect="dark"
+                  :content="t('dataPipelines.partialSuccessTip')"
+                  placement="top"
+                >
+                  <el-icon style="color: #e6a23c; cursor: pointer">
+                    <WarningFilled />
+                  </el-icon>
+                </el-tooltip>
               </div>
             </template>
           </el-table-column>
@@ -330,6 +340,13 @@ const taskStatusVal = ref([
     value: 4,
     label: `${t("dataPipelines.manualStop")}`,
     type: "danger",
+  },
+  {
+    // Partial success: some files failed to convert. Keep the "已完成" label and
+    // surface the failure via a warning icon + tooltip in the status column.
+    value: 5,
+    label: `${t("dataPipelines.completed")}`,
+    type: "success",
   },
 ]);
 const formatVal = ref([
