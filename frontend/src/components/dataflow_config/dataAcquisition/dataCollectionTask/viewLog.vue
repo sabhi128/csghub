@@ -1,5 +1,5 @@
 <template>
-  <div class="text-left w-full h-full pl-8 py-8 overflow-hidden bg-white">
+  <div class="text-left w-full h-full pl-8 py-8 overflow-hidden bg-white flex flex-col">
     <div class="headerMenu flex items-center justify-start mb-[20px]">
       <SvgIcon class="w-5 h-5" name="dataflow_homeIcon" />
       <SvgIcon class="w-5 h-5 mx-2" name="dataflow_homeIcon_divider" />
@@ -165,6 +165,8 @@ onBeforeUnmount(() => {
 </script>
 <style lang="less" scoped>
 .resultBox {
+  flex: 1;
+  min-height: 0;
   display: block;
   box-sizing: border-box;
   width: 100%;
@@ -173,8 +175,7 @@ onBeforeUnmount(() => {
   border-radius: 12px;
   background: #0c111d;
   padding: 24px;
-  height: 700px;
-  overflow: scroll;
+  overflow: auto;
   white-space: pre;
   word-wrap: normal;
   overflow-wrap: normal;

@@ -21,8 +21,6 @@
         <el-input
           style="width: 100%"
           v-model="form.searchStr"
-          @keyup.enter="searchListFun"
-          @clear="searchListFun"
           :placeholder="`${t('dataPipelines.toInput')}${t(
             'dataPipelines.templateName'
           )}`"
@@ -114,7 +112,7 @@
 
 <script setup>
 import { useRouter } from "vue-router";
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import useFetchApi from "../../../../packs/useFetchApi";
 import { useI18n } from "vue-i18n";
@@ -124,7 +122,16 @@ const { t } = useI18n();
 const form = ref({
   searchStr: "",
 });
-const templateList = ref([]);
+const allTemplateList = ref([]);
+const templateList = computed(() => {
+  const keyword = form.value.searchStr.trim();
+  if (!keyword) {
+    return allTemplateList.value;
+  }
+  return allTemplateList.value.filter((item) =>
+    item.name?.includes(keyword)
+  );
+});
 
 const toNewPage = (type, index) => {
   router.push({ path: "/datapipelines/newTemplate", query: { type, index } });
@@ -152,14 +159,8 @@ const getTemplatesListFun = async () => {
   const { data } = await useFetchApi(url).get().json();
   if (data.value) {
     const res = data.value.data.templates;
-    templateList.value = res;
+    allTemplateList.value = res;
   }
-  // searchListFun();
-};
-const searchListFun = async () => {
-  templateList.value = templateList.value.filter((item) =>
-    item.name.includes(form.value.searchStr)
-  );
 };
 const handleDelete = async (id) => {
   const url = `/dataflow/templates/${id}`;
