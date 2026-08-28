@@ -80,8 +80,8 @@ func TestDatasetHandlerImpl_New(t *testing.T) {
 
 	mockBase.EXPECT().
 		RenderTemplate(mock.Anything, "datasets_new", mock.MatchedBy(func(data map[string]interface{}) bool {
-			_, exists := data["licenses"]
-			return exists
+			licenses, ok := data["licenses"].(string)
+			return ok && licenses == DefaultLicensesJSON
 		})).
 		Return()
 
