@@ -65,6 +65,17 @@
             min-width="320"
           />
           <el-table-column
+            prop="execution_mode"
+            :label="t('dataPipelines.executionMode')"
+            min-width="140"
+          >
+            <template #default="scope">
+              <span>
+                {{ getExecutionMode(scope.row) }}
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column
             prop="job_type"
             :label="t('dataPipelines.taskType')"
             min-width="180"
@@ -238,21 +249,84 @@
     <el-dialog
       v-model="executeDialogVisible"
       :title="t('dataPipelines.execute')"
-      width="720"
+      width="900px"
       align-center
       @closed="onExecuteDialogClosed"
     >
-      <SpaceResourceSelect
-        ref="executeSpaceResourceFieldsRef"
-        :key="executeDialogKey"
-        v-if="executeDialogVisible"
-        v-model:cluster-id="executeClusterId"
-        v-model:cluster-name="executeClusterName"
-        v-model:space-resource-id="executeSpaceResourceId"
-        v-model:resource-name="executeResourceName"
-        compact
-      />
-      <StorageSizeField v-model="executeStorageSize" />
+      <div class="execute-dialog-content">
+        <!-- 空间资源配置区域 -->
+        <div class="space-resource-section">
+          <p class="section-title">{{ t('dataPipelines.spaceResourceConfig') }}</p>
+          
+          <SpaceResourceSelect
+            ref="executeSpaceResourceFieldsRef"
+            :key="executeDialogKey"
+            v-if="executeDialogVisible"
+            v-model:cluster-id="executeClusterId"
+            v-model:cluster-name="executeClusterName"
+            v-model:space-resource-id="executeSpaceResourceId"
+            v-model:resource-name="executeResourceName"
+            compact
+          />
+          <StorageSizeField v-model="executeStorageSize" class="mt-[24px]" />
+        </div>
+
+        <!-- 执行模式选择区域（仅支持流式算子时显示） -->
+        <div v-if="executeIsStreamingCompatible" class="execution-mode-section">
+          <el-divider />
+          
+          <p class="section-title">{{ t('dataPipelines.executionModeTitle') }}</p>
+          
+          <!-- 检测提示 -->
+          <div class="detection-tip">
+            <el-icon class="tip-icon"><CircleCheckFilled /></el-icon>
+            <span class="tip-text">{{ t('dataPipelines.streamingCompatibleDetected') }}</span>
+          </div>
+          
+          <el-radio-group v-model="executeExecutionMode" class="mode-radio-group">
+            <el-radio value="normal" size="large">
+              {{ t('dataPipelines.normalMode') }}
+            </el-radio>
+            <el-radio value="streaming" size="large">
+              {{ t('dataPipelines.streamingMode') }}
+            </el-radio>
+          </el-radio-group>
+
+          <!-- 批量大小设置（仅流式模式时显示） -->
+          <div v-if="executeExecutionMode === 'streaming'" class="batch-size-section">
+            <p class="batch-size-label">
+              <span class="required-mark">*</span>
+              {{ t('dataPipelines.streamingBatchSize') }}
+            </p>
+            <el-input
+              v-model.number="executeStreamingBatchSize"
+              type="number"
+              :min="1"
+              :placeholder="t('dataPipelines.streamingBatchSizePlaceholder')"
+              class="batch-size-input"
+              @input="handleExecuteBatchSizeInput"
+            >
+              <template #suffix>
+                <span class="input-unit">{{ t('dataPipelines.batchUnit') }}</span>
+              </template>
+            </el-input>
+            <p class="batch-size-hint">
+              <el-icon class="hint-icon"><InfoFilled /></el-icon>
+              {{ t('dataPipelines.streamingBatchSizeHint') }}
+            </p>
+          </div>
+
+          <!-- 流式模式说明 -->
+          <div class="streaming-benefits">
+            <p class="benefits-title">{{ t('dataPipelines.streamingModeBenefits') }}</p>
+            <ul>
+              <li>{{ t('dataPipelines.streamingBenefit1') }}</li>
+              <li>{{ t('dataPipelines.streamingBenefit2') }}</li>
+              <li>{{ t('dataPipelines.streamingBenefit3') }}</li>
+            </ul>
+          </div>
+        </div>
+      </div>
       <template #footer>
         <div class="dialog-footer flex flex-row justify-end items-center gap-3">
           <CsgButton
@@ -276,6 +350,7 @@
 import { useRouter, useRoute } from "vue-router";
 import { ref, onMounted, onBeforeUnmount, watch } from "vue";
 import { ElMessage } from "element-plus";
+import { InfoFilled, CircleCheckFilled } from '@element-plus/icons-vue';
 import useFetchApi from "../../../packs/useFetchApi";
 import {
   resolveCsghubLogParamsFromTask,
@@ -303,6 +378,11 @@ const executeResourceName = ref("");
 const executeStorageSize = ref("4Gi");
 const executeSubmitting = ref(false);
 const executeSpaceResourceFieldsRef = ref(null);
+
+// 执行弹框-流式模式相关状态
+const executeIsStreamingCompatible = ref(false);
+const executeExecutionMode = ref('normal');
+const executeStreamingBatchSize = ref(100);
 
 const form = ref({
   searchStr: "",
@@ -402,14 +482,182 @@ const handleSearch = () => {
   getDataFlowListFun();
 };
 
-const openExecuteDialog = (row) => {
+// 支持流式模式的算子列表
+const streamingCompatibleOperators = [
+  'clean_email_mapper',
+  'clean_copyright_mapper',
+  'clean_links_mapper',
+  'expand_macro_mapper',
+  'fix_unicode_mapper',
+  'clean_ip_mapper',
+  'clean_html_mapper',
+  'chinese_convert_mapper',
+  'nlpaug_en_mapper',
+  'nlpcda_zh_mapper',
+  'punctuation_normalization_mapper',
+  'remove_bibliography_mapper',
+  'remove_comments_mapper',
+  'remove_header_mapper',
+  'remove_long_words_mapper',
+  'remove_non_chinese_character_mapper',
+  'remove_repeat_sentences_mapper',
+  'remove_specific_chars_mapper',
+  'remove_table_text_mapper',
+  'remove_words_with_incorrect_substrings_mapper',
+  'replace_content_mapper',
+  'sentence_split_mapper',
+  'whitespace_normalization_mapper',
+  'flagged_words_filter',
+  'character_repetition_filter',
+  'text_length_filter',
+  'alphanumeric_filter',
+  'word_repetition_filter',
+  'words_num_filter',
+  'average_line_length_filter',
+  'language_id_score_filter',
+  'maximum_line_length_filter',
+  'special_characters_filter',
+  'specified_field_filter',
+  'specified_numeric_field_filter',
+  'stopwords_filter',
+  'suffix_filter',
+  'text_high_score_filter',
+  'multi_keyword_filter',
+  'text_entity_dependency_filter',
+  'annotate_edu_train_bert_scorer_mapper',
+  'text_action_filter',
+  'perplexity_filter',
+  'optimize_instruction_mapper',
+  'extract_qa_mapper',
+  'generate_code_qa_pair_mapper'
+];
+
+/**
+ * 获取任务的执行模式显示文本
+ * @param {Object} row - 任务行数据
+ * @returns {string} - 执行模式文本
+ */
+const getExecutionMode = (row) => {
+  try {
+    // 优先从 yaml_config 解析
+    if (row.yaml_config) {
+      const yamlLines = row.yaml_config.split('\n');
+      for (const line of yamlLines) {
+        if (line.trim().startsWith('use_streaming:')) {
+          const value = line.split(':')[1].trim().toLowerCase();
+          if (value === 'true') {
+            return t('dataPipelines.streamingExecution');
+          }
+        }
+      }
+    }
+    
+    // 如果有 use_streaming 字段（未来可能添加）
+    if (row.use_streaming === true) {
+      return t('dataPipelines.streamingExecution');
+    }
+    
+    // 默认为普通执行
+    return t('dataPipelines.normalExecution');
+  } catch (error) {
+    console.error('解析执行模式失败:', error);
+    return t('dataPipelines.normalExecution');
+  }
+};
+
+/**
+ * 检查工作流中的算子是否全部支持流式模式
+ */
+const checkStreamingCompatibility = (workflowData) => {
+  try {
+    // 支持两种数据结构：
+    // 1. workflowData.json.process (JSON格式)
+    // 2. workflowData.process (YAML解析后的格式)
+    const process = workflowData?.json?.process || workflowData?.process;
+    
+    if (!process) {
+      console.log('未找到 process 数据');
+      return false;
+    }
+
+    const processEntries = Object.values(process);
+    
+    if (processEntries.length === 0) {
+      console.log('process 为空');
+      return false;
+    }
+    
+    const operators = processEntries.map(node => node.operator_name);
+    console.log('检测到的算子:', operators);
+    
+    const isCompatible = operators.every(op => streamingCompatibleOperators.includes(op));
+    console.log('流式模式兼容性检查结果:', isCompatible);
+    
+    return isCompatible;
+  } catch (error) {
+    console.error('检查流式模式兼容性时出错:', error);
+    return false;
+  }
+};
+
+/**
+ * 处理批量大小输入验证
+ */
+const handleExecuteBatchSizeInput = (value) => {
+  if (value === '' || value === null || value === undefined) {
+    return;
+  }
+  
+  const numValue = Number(value);
+  
+  if (numValue <= 0) {
+    ElMessage.error(t('dataPipelines.streamingBatchSizeMinError'));
+  } else if (!Number.isInteger(numValue)) {
+    ElMessage.error(t('dataPipelines.streamingBatchSizeIntegerError'));
+  }
+};
+
+const openExecuteDialog = async (row) => {
   executePendingJobId.value = row.job_id;
   executeClusterId.value = "";
   executeClusterName.value = "";
   executeSpaceResourceId.value = "";
   executeResourceName.value = "";
   executeStorageSize.value = "4Gi";
+  executeExecutionMode.value = 'normal';
+  executeStreamingBatchSize.value = 100;
+  executeIsStreamingCompatible.value = false;
   executeDialogKey.value = Date.now();
+  
+  // 直接从列表行数据中获取 dslText（列表数据已经包含完整信息）
+  const dslText = row.dslText || row.dsl_text;
+  
+  if (dslText) {
+    try {
+      // 尝试 JSON 解析
+      try {
+        const workflowData = JSON.parse(dslText);
+        executeIsStreamingCompatible.value = checkStreamingCompatibility(workflowData);
+      } catch (jsonError) {
+        // YAML 格式，使用正则提取算子名称
+        const operatorNameRegex = /operator_name:\s*(\w+)/g;
+        const operators = [];
+        let match;
+        while ((match = operatorNameRegex.exec(dslText)) !== null) {
+          operators.push(match[1]);
+        }
+        
+        if (operators.length > 0) {
+          executeIsStreamingCompatible.value = operators.every(op => 
+            streamingCompatibleOperators.includes(op)
+          );
+        }
+      }
+    } catch (error) {
+      console.error('解析工作流数据失败:', error);
+    }
+  }
+  
   executeDialogVisible.value = true;
 };
 
@@ -429,8 +677,28 @@ const confirmExecute = async () => {
     );
   }
 
+  // 如果选择流式模式，验证批量大小
+  if (executeExecutionMode.value === 'streaming') {
+    if (executeStreamingBatchSize.value === null || executeStreamingBatchSize.value === undefined || executeStreamingBatchSize.value === '') {
+      return ElMessage.error(t('dataPipelines.streamingBatchSizeRequired'));
+    }
+    
+    const batchSize = Number(executeStreamingBatchSize.value);
+    
+    if (batchSize <= 0) {
+      return ElMessage.error(t('dataPipelines.streamingBatchSizeMinError'));
+    }
+    
+    if (!Number.isInteger(batchSize)) {
+      return ElMessage.error(t('dataPipelines.streamingBatchSizeIntegerError'));
+    }
+  }
+
   const spaceNames =
     executeSpaceResourceFieldsRef.value?.resolveSelectionNames?.() ?? {};
+  
+  const useStreaming = executeExecutionMode.value === 'streaming';
+  
   const params = {
     cluster_id: executeClusterId.value,
     cluster_name: spaceNames.cluster_name || executeClusterName.value,
@@ -438,7 +706,13 @@ const confirmExecute = async () => {
     resource_name: spaceNames.resource_name || executeResourceName.value,
     space_resource_id: executeSpaceResourceId.value,
     storage_size: normalizeStorageSize(executeStorageSize.value),
+    use_streaming: useStreaming,
   };
+
+  // 只有启用流式模式时才传递批量大小参数
+  if (useStreaming) {
+    params.streaming_batch_size = Number(executeStreamingBatchSize.value);
+  }
 
   executeSubmitting.value = true;
   const url = `/dataflow/jobs/job/execute/${executePendingJobId.value}`;
@@ -640,5 +914,165 @@ onBeforeUnmount(() => {
   padding: 12px 24px !important;
   border-bottom: 1px solid var(--colors-gray-light-mode-200, #eaecf0);
   background: var(--Gray-50, #f9fafb) !important;
+}
+
+// 执行对话框样式
+.execute-dialog-content {
+  padding: 8px 0;
+  
+  .space-resource-section {
+    margin-bottom: 24px;
+    
+    .section-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #101828;
+      margin-bottom: 16px;
+    }
+  }
+  
+  .execution-mode-section {
+    :deep(.el-divider) {
+      margin: 0 0 24px 0;
+    }
+    
+    .section-title {
+      font-size: 16px;
+      font-weight: 500;
+      color: #101828;
+      margin-bottom: 12px;
+    }
+
+    .detection-tip {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      background: #f0f9ff;
+      border: 1px solid #b3e0ff;
+      border-radius: 6px;
+      margin-bottom: 16px;
+
+      .tip-icon {
+        flex-shrink: 0;
+        font-size: 16px;
+        color: #0ea5e9;
+        margin-right: 8px;
+      }
+
+      .tip-text {
+        font-size: 13px;
+        color: #0c4a6e;
+        line-height: 1.5;
+      }
+    }
+
+    .mode-radio-group {
+      display: flex;
+      gap: 32px;
+      margin-bottom: 16px;
+
+      :deep(.el-radio) {
+        margin-right: 0;
+        height: 32px;
+        line-height: 32px;
+        
+        .el-radio__label {
+          font-size: 14px;
+          color: #344054;
+          font-weight: 400;
+          padding-left: 8px;
+        }
+        
+        &.is-checked {
+          .el-radio__label {
+            color: #3250bd;
+          }
+        }
+      }
+    }
+
+    .batch-size-section {
+      padding: 16px;
+      background: #f9fafb;
+      border: 1px solid #e4e7ec;
+      border-radius: 8px;
+      margin-bottom: 16px;
+
+      .batch-size-label {
+        font-size: 14px;
+        font-weight: 500;
+        color: #344054;
+        margin-bottom: 8px;
+        display: flex;
+        align-items: center;
+
+        .required-mark {
+          color: #f04438;
+          font-size: 14px;
+          margin-right: 4px;
+        }
+      }
+
+      .batch-size-input {
+        margin-bottom: 8px;
+
+        :deep(.el-input__inner) {
+          text-align: left;
+        }
+
+        .input-unit {
+          font-size: 12px;
+          color: #667085;
+          padding-right: 8px;
+        }
+      }
+
+      .batch-size-hint {
+        font-size: 12px;
+        color: #667085;
+        line-height: 1.5;
+        display: flex;
+        align-items: flex-start;
+        margin: 0;
+
+        .hint-icon {
+          flex-shrink: 0;
+          margin-right: 4px;
+          margin-top: 2px;
+          color: #98a2b3;
+        }
+      }
+    }
+
+    .streaming-benefits {
+      padding: 16px;
+      background: #f0f7ff;
+      border: 1px solid #d1e9ff;
+      border-radius: 8px;
+      
+      .benefits-title {
+        font-size: 14px;
+        font-weight: 500;
+        color: #101828;
+        margin-bottom: 12px;
+      }
+
+      ul {
+        margin: 0;
+        padding-left: 20px;
+        
+        li {
+          font-size: 13px;
+          color: #475467;
+          line-height: 1.8;
+          margin-bottom: 6px;
+
+          &:last-child {
+            margin-bottom: 0;
+          }
+        }
+      }
+    }
+  }
 }
 </style>

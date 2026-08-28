@@ -153,7 +153,11 @@
             placement="top"
             effect="dark"
           >
-            <p class="text-sm font-light textContValueP text-brand-600 hover:underline cursor-pointer" @click="toDatasetPage(jobInfo.export_repo_id,jobInfo.export_branch_name)">
+            <p
+              class="text-sm font-light textContValueP"
+              :class="canOpenOutputDataset ? 'text-brand-600 hover:underline cursor-pointer' : 'text-gray-600'"
+              @click="toDatasetPage(jobInfo.export_repo_id, jobInfo.export_branch_name)"
+            >
               {{
                 `${jobInfo.export_repo_id || '-'}>${
                 jobInfo.export_branch_name || '-'
@@ -529,6 +533,11 @@
 
   const activeTab = ref(route.query.type === 'pipeline' ? '0' : '3')
   const jobInfo = ref({})
+  const canOpenOutputDataset = computed(() => (
+    jobInfo.value.status === 'Finished' &&
+    Boolean(jobInfo.value.export_repo_id) &&
+    Boolean(jobInfo.value.export_branch_name)
+  ))
   const tableData = ref([])
   const sessionData = ref([])
   const logData = ref([])
@@ -694,9 +703,8 @@
   }
 
   const toDatasetPage = (path,branch) => {
-    if(path&&branch){
-      window.location.href=`/datasets/${path}?tab=files&actionName=files&branch=${branch}`
-    }
+    if (!canOpenOutputDataset.value || !path || !branch) return
+    window.location.href = `/datasets/${path}?tab=files&actionName=files&branch=${encodeURIComponent(branch)}`
   }
   /**
    * 查看资源占用
