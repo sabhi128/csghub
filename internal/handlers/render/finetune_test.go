@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	mockRenderBase "opencsg.com/portal/_mocks/opencsg.com/portal/handlers/render"
 	"opencsg.com/portal/pkg/types"
@@ -33,6 +34,8 @@ func TestFinetuneHandlerImpl_List(t *testing.T) {
 	}
 
 	handler.List(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestFinetuneHandlerImpl_Detail(t *testing.T) {
@@ -72,6 +75,8 @@ func TestFinetuneHandlerImpl_Detail(t *testing.T) {
 	}
 
 	handler.Detail(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestFinetuneHandlerImpl_New(t *testing.T) {
@@ -99,4 +104,6 @@ func TestFinetuneHandlerImpl_New(t *testing.T) {
 	}
 
 	handler.New(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
