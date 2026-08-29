@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	mockRenderBase "opencsg.com/portal/_mocks/opencsg.com/portal/handlers/render"
 	"opencsg.com/portal/pkg/types"
