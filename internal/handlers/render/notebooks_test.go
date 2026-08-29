@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	mockRenderBase "opencsg.com/portal/_mocks/opencsg.com/portal/handlers/render"
 	"opencsg.com/portal/pkg/types"
@@ -33,6 +34,8 @@ func TestNotebookHandlerImpl_List(t *testing.T) {
 	}
 
 	handler.List(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestNotebookHandlerImpl_Show(t *testing.T) {
@@ -68,6 +71,8 @@ func TestNotebookHandlerImpl_Show(t *testing.T) {
 	}
 
 	handler.Show(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestNotebookHandlerImpl_New(t *testing.T) {
@@ -95,4 +100,6 @@ func TestNotebookHandlerImpl_New(t *testing.T) {
 	}
 
 	handler.New(ctx)
+
+	assert.Equal(t, http.StatusOK, w.Code)
 }
