@@ -6,17 +6,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import BranchDropdown from "../../shared/BranchDropdown.vue";
 
-let getApiMockFn = vi.fn().mockImplementation(() => 
-  Promise.resolve({
-    data: { value: { data: [{ name: "main" }, { name: "dev" }] } },
-    error: { value: null }
-  })
-);
+let { mockFetchApi } = vi.hoisted(() => {
+  return {
+    mockFetchApi: vi.fn(() => ({
+      json: () => Promise.resolve({
+        data: { value: { data: [{ name: "main" }, { name: "dev" }] } },
+        error: { value: null }
+      })
+    }))
+  };
+});
 
 vi.mock('../../../packs/useFetchApi', () => ({
-  default: () => ({
-    json: getApiMockFn
-  })
+  default: mockFetchApi
 }));
 
 const mockResetFileNotFound = vi.fn();
@@ -30,7 +32,7 @@ describe("BranchDropdown", () => {
   let wrapper;
 
   beforeEach(async () => {
-    getApiMockFn.mockClear();
+    mockFetchApi.mockClear();
     mockResetFileNotFound.mockClear();
 
     wrapper = mount(BranchDropdown, {
@@ -45,7 +47,7 @@ describe("BranchDropdown", () => {
   });
 
   it("fetches branches on mount and resolves them", async () => {
-    expect(getApiMockFn).toHaveBeenCalled();
+    expect(mockFetchApi).toHaveBeenCalled();
     await flushPromises();
     expect(wrapper.vm.branches).toEqual([{ name: "main" }, { name: "dev" }]);
   });
