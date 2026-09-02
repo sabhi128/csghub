@@ -88,9 +88,13 @@
             <div class="text-gray-400 text-xs mb-1 mt-1">
               {{ t("dataPipelines.connectionStatus") }}：
             </div>
-            <el-tag :type="testLinkStatus === true ? 'success' : 'danger'">
+            <el-tag
+              :type="testLinkStatus === null ? 'info' : testLinkStatus ? 'success' : 'danger'"
+            >
               {{
-                testLinkStatus === true
+                testLinkStatus === null
+                  ? t("dataPipelines.testingConnection")
+                  : testLinkStatus === true
                   ? t("dataPipelines.normal")
                   : t("dataPipelines.anomaly")
               }}
@@ -136,7 +140,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, defineProps, inject } from "vue";
+import { ref, watch, inject } from "vue";
 import useFetchApi from "@/packs/useFetchApi";
 import { convertUtcToLocalTime } from "@/packs/datetimeUtils";
 import { useI18n } from "vue-i18n";
@@ -147,10 +151,8 @@ const dataList = inject("dataList");
 // 加载状态
 const loading = ref(true);
 // 连接状态
-const testLinkStatus = ref(false);
-onMounted(() => {
-  testLink();
-});
+// null: detecting; true: connected; false: disconnected
+const testLinkStatus = ref(null);
 
 const getDataFlow = (extra_config = '{}') => {
   let dataFlow = {};
@@ -176,16 +178,29 @@ const testLink = async () => {
     body: JSON.stringify(params),
   };
   loading.value = true;
+  testLinkStatus.value = null;
   const newEndpoint = "/dataflow/datasource/datasource/test-connection";
-  const { data, error } = await useFetchApi(newEndpoint, options).post().json();
-  if (data.value.code === 200) {
-    testLinkStatus.value = true;
-  } else {
+  try {
+    const { data } = await useFetchApi(newEndpoint, options).post().json();
+    testLinkStatus.value = Boolean(
+      data.value?.code === 200 && data.value?.data?.success === true
+    );
+  } catch {
     testLinkStatus.value = false;
+  } finally {
+    loading.value = false;
   }
-
-  loading.value = false;
 };
+
+watch(
+  () => dataSource.value?.datasourceInfo,
+  (datasourceInfo) => {
+    if (datasourceInfo) {
+      testLink();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

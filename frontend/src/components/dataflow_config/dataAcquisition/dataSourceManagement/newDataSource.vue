@@ -1021,7 +1021,10 @@ const testLink = async (formEl) => {
           .post()
           .json();
         loading.close();
-        if (data.value && data.value.code === 200) {
+        if (
+          data.value?.code === 200 &&
+          data.value?.data?.success === true
+        ) {
           // MongoDB
           if (typeId.value === 2) {
             getDatasourceTables(options);
