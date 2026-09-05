@@ -96,4 +96,14 @@ describe("ParquetViewer", () => {
     await flushPromises();
     expect(wrapper.vm.split).toBe("train");
   });
+
+  it("renders column headers with formatted column type badges", async () => {
+    await flushPromises();
+    const textContent = wrapper.text();
+    expect(textContent).toContain("id");
+    expect(textContent).toContain("int");
+    expect(textContent).toContain("text");
+    expect(textContent).toContain("str");
+    expect(textContent).toContain("label");
+  });
 });

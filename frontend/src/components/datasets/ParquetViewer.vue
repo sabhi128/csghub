@@ -98,11 +98,21 @@
                 class="w-full rounded-md mb-4"
                 row-class-name="row-item-clamp cursor-pointer"
                 cell-class-name="!align-top">
-        <el-table-column v-for="column in previewData.columns"
+        <el-table-column v-for="(column, idx) in previewData.columns"
                         :key="column"
                         :prop="column"
-                        :label="column"
-                        min-width="180" />
+                        sortable
+                        min-width="180">
+          <template #header>
+            <div class="flex items-center gap-1.5 overflow-hidden">
+              <span class="truncate font-medium text-gray-700" :title="column">{{ column }}</span>
+              <span v-if="getColumnType(idx)"
+                    class="text-[11px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 font-mono font-normal flex-shrink-0 border border-gray-200">
+                {{ formatColumnType(getColumnType(idx)) }}
+              </span>
+            </div>
+          </template>
+        </el-table-column>
       </el-table>
       <CsgPagination
         :perPage="perPage"
@@ -174,6 +184,22 @@
       }, {})
     )
   })
+
+  const getColumnType = (index) => {
+    return previewData.value?.columns_type?.[index] || ''
+  }
+
+  const formatColumnType = (type) => {
+    if (!type) return ''
+    const lower = type.toLowerCase()
+    if (lower === 'string') return 'str'
+    if (lower.includes('int')) return lower
+    if (lower.includes('float')) return 'float'
+    if (lower.includes('bool')) return 'bool'
+    if (lower.includes('list') || lower.includes('array')) return 'list'
+    if (lower.includes('dict') || lower.includes('struct')) return 'dict'
+    return type
+  }
 
   const showRows = computed(() => {
     let result = ''
