@@ -102,6 +102,7 @@
                         :key="column"
                         :prop="column"
                         sortable
+                        :sort-method="getSortMethod(column, idx)"
                         min-width="180">
           <template #header>
             <div class="flex items-center gap-1.5 overflow-hidden">
@@ -199,6 +200,29 @@
     if (lower.includes('list') || lower.includes('array')) return 'list'
     if (lower.includes('dict') || lower.includes('struct')) return 'dict'
     return type
+  }
+
+  const getSortMethod = (column, index) => {
+    const colType = getColumnType(index)
+    const lower = (colType || '').toLowerCase()
+    const isNumeric = lower.includes('int') || lower.includes('float') || lower.includes('number')
+
+    return (a, b) => {
+      const valA = a[column]
+      const valB = b[column]
+      if (valA === valB) return 0
+      if (valA === undefined || valA === null) return -1
+      if (valB === undefined || valB === null) return 1
+
+      if (isNumeric) {
+        const numA = Number(valA)
+        const numB = Number(valB)
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB
+        }
+      }
+      return String(valA).localeCompare(String(valB))
+    }
   }
 
   const showRows = computed(() => {
