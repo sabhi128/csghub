@@ -10,6 +10,7 @@
         :content="readmeContent"
         :setDefaultText="true"
         v-if="!loading"
+        @headings-change="handleHeadingsChange"
       >
       </markdown-viewer>
     </div>
@@ -52,6 +53,11 @@
           </div>
         </div>
       </div>
+
+      <TableOfContents
+        v-if="headings && headings.length > 0"
+        :headings="headings"
+      />
 
       <SpaceRelationsCard v-if="relations['spaces'] && relations['spaces'].length !== 0"
                           :namespacePath="namespacePath"
@@ -110,6 +116,7 @@
 <script setup>
   import { ref, onMounted, onBeforeUnmount, computed, watch } from 'vue'
   import MarkdownViewer from '../../components/shared/viewers/MarkdownViewer.vue'
+  import TableOfContents from './TableOfContents.vue'
   import ParquetViewer from '../../components/datasets/ParquetViewer.vue'
   import SpaceRelationsCard from '../application_spaces/SpaceRelationsCard.vue'
   import PromptRelationsCard from '../prompts/PromptRelationsCard.vue'
@@ -147,6 +154,11 @@
   const relations = ref({})
   const endpoint = ref({})
   const datasetInfo = ref(null)
+  const headings = ref([])
+
+  const handleHeadingsChange = (newHeadings) => {
+    headings.value = newHeadings
+  }
 
   const showSideSection = computed(() => {
     return props.repoType !== 'mcp'

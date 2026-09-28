@@ -1,9 +1,9 @@
 <template>
-  <div class="markdown-body overflow-auto" :class="props.class" v-html="mdParser.render(markdownContent)"></div>
+  <div class="markdown-body overflow-auto" :class="props.class" v-html="renderedContent"></div>
 </template>
 
 <script setup>
-  import { computed, onMounted } from 'vue';
+  import { computed, onMounted, ref, watch, nextTick } from 'vue';
   import MarkdownIt from 'markdown-it';
   import markdownItAnchor from 'markdown-it-anchor'
   import parseMD from 'parse-md'
@@ -21,20 +21,31 @@
     class: String,
   })
 
+  const emit = defineEmits(['headings-change'])
+
   const defaultText = t('all.defaultText')
 
   const markdownContent = computed(() => {
     try {
-      const { _metadata, content } = parseMD(props.content)
+      const { _metadata, content } = parseMD(props.content || '')
       return props.setDefaultText ? (content.trim() || defaultText) : content
     } catch (error) {
       console.error(error)
-      return props.content
+      return props.content || ''
     }
   })
 
+  let collectedHeadings = []
+
   const anchorOptions = {
     tabIndex: false,
+    callback: (token, info) => {
+      collectedHeadings.push({
+        level: parseInt(token.tag.slice(1), 10),
+        title: info.title,
+        slug: info.slug
+      })
+    }
   }
 
   const copyIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M10.7779 5.3335V5.3335C11.9162 5.3335 12.4854 5.3335 12.9395 5.50441C13.6582 5.77492 14.2254 6.34212 14.4959 7.06083C14.6668 7.51495 14.6668 8.08409 14.6668 9.22239V10.4002C14.6668 11.8936 14.6668 12.6404 14.3762 13.2108C14.1205 13.7126 13.7126 14.1205 13.2108 14.3762C12.6404 14.6668 11.8936 14.6668 10.4002 14.6668H9.22239C8.08409 14.6668 7.51495 14.6668 7.06083 14.4959C6.34212 14.2254 5.77492 13.6582 5.50441 12.9395C5.3335 12.4854 5.3335 11.9162 5.3335 10.7779V10.7779M5.60016 10.6668H6.40016C7.89364 10.6668 8.64037 10.6668 9.2108 10.3762C9.71257 10.1205 10.1205 9.71257 10.3762 9.2108C10.6668 8.64037 10.6668 7.89364 10.6668 6.40016V5.60016C10.6668 4.10669 10.6668 3.35995 10.3762 2.78952C10.1205 2.28776 9.71257 1.87981 9.2108 1.62415C8.64037 1.3335 7.89364 1.3335 6.40016 1.3335H5.60016C4.10669 1.3335 3.35995 1.3335 2.78952 1.62415C2.28776 1.87981 1.87981 2.28776 1.62415 2.78952C1.3335 3.35995 1.3335 4.10669 1.3335 5.60016V6.40016C1.3335 7.89364 1.3335 8.64037 1.62415 9.2108C1.87981 9.71257 2.28776 10.1205 2.78952 10.3762C3.35995 10.6668 4.10669 10.6668 5.60016 10.6668Z" stroke="#606266" stroke-linecap="round" stroke-linejoin="round"/></svg>'
@@ -62,7 +73,27 @@
     }
   }).use(markdownItAnchor, anchorOptions)
 
+  const renderedContent = ref('')
+
+  const renderContent = () => {
+    collectedHeadings = []
+    renderedContent.value = mdParser.render(markdownContent.value || '')
+    emit('headings-change', [...collectedHeadings])
+    nextTick(() => {
+      initializeCopyButtons()
+    })
+  }
+
+  watch(
+    markdownContent,
+    () => {
+      renderContent()
+    },
+    { immediate: true }
+  )
+
   const initializeCopyButtons = () => {
+    if (typeof document === 'undefined') return
     document.querySelectorAll('.copy-button').forEach((button) => {
       tippy(button, {
         content: 'Copied!',
