@@ -323,6 +323,7 @@ describe('PromptsDetails.vue', () => {
     }))
 
     // Call deletePrompt method
+    vi.useFakeTimers()
     await wrapper.vm.deletePrompt()
 
     // Verify ElMessage is called
@@ -330,6 +331,9 @@ describe('PromptsDetails.vue', () => {
       message: 'all.delSuccess',
       type: 'success'
     })
+
+    vi.advanceTimersByTime(500)
+    vi.useRealTimers()
   })
 
   it('should show warning message when prompt deletion fails', async () => {

@@ -347,7 +347,9 @@
     } else {
       ElMessage({ message: t('all.delSuccess'), type: 'success' });
       setTimeout(() => {
-        window.location.href = `/prompts/library/${props.namespace}/${props.name}`
+        if (typeof window !== 'undefined') {
+          window.location.href = `/prompts/library/${props.namespace}/${props.name}`
+        }
       }, 500);
     }
   }
