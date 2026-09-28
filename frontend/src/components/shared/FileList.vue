@@ -63,6 +63,23 @@
       </div>
     </div>
 
+    <div
+      v-if="!loading && files && files.length > 0"
+      class="mt-4 flex items-center justify-between gap-3 flex-wrap"
+    >
+      <el-input
+        v-model="filterQuery"
+        :placeholder="$t('all.filterFiles')"
+        clearable
+        size="default"
+        class="max-w-[280px] md:max-w-full file-filter-input"
+        :prefix-icon="Search"
+      />
+      <div v-if="filterQuery.trim()" class="text-xs text-gray-500 font-medium filter-count-badge">
+        {{ $t('all.filterCount', { count: filteredFiles.length, total: files.length }) }}
+      </div>
+    </div>
+
     <div v-if="!loading" class="flex items-center justify-between min-h-[36px] mt-4 px-3 py-2 border border-gray-200 bg-gray-100 rounded-t-xl">
       <div v-if="lastCommit" class="flex items-center text-sm overflow-hidden mr-2">
         <div class="flex items-center mr-2">
@@ -89,7 +106,7 @@
       </div>
     </div>
 
-    <div v-if="files" v-for="file in files" class="flex items-center justify-between px-3 py-2 border border-t-0 border-gray-200 last-of-type:rounded-b-xl">
+    <div v-if="filteredFiles" v-for="file in filteredFiles" class="flex items-center justify-between px-3 py-2 border border-t-0 border-gray-200 last-of-type:rounded-b-xl file-row-item">
       <div class="flex items-center w-[31%]" :title="file.name">
         <svg class="flex-shrink-0" v-if="file.type === 'dir'" xmlns="http://www.w3.org/2000/svg" width="14" height="15" viewBox="0 0 14 15" fill="none">
           <path d="M3.52949 1.229C2.5494 1.229 2.05935 1.229 1.68501 1.41974C1.35573 1.58752 1.08801 1.85524 0.920231 2.18452C0.729492 2.55887 0.729492 3.04891 0.729492 4.02901V10.0373C0.729492 11.3441 0.729492 11.9975 0.98381 12.4966C1.20751 12.9357 1.56447 13.2926 2.00351 13.5164C2.50264 13.7707 3.15604 13.7707 4.46283 13.7707H9.53783C10.8446 13.7707 11.498 13.7707 11.9971 13.5164C12.4362 13.2926 12.7931 12.9357 13.0168 12.4966C13.2712 11.9975 13.2712 11.3441 13.2712 10.0373V7.29567C13.2712 5.98888 13.2712 5.33549 13.0168 4.83636C12.7931 4.39731 12.4362 4.04036 11.9971 3.81666C11.498 3.56234 10.8446 3.56234 9.53783 3.56234H8.89755C8.58581 3.56234 8.42993 3.56234 8.2892 3.52677C8.05664 3.46799 7.84784 3.33894 7.69126 3.15722C7.59651 3.04725 7.5268 2.90784 7.38738 2.629V2.629C7.17826 2.21076 7.0737 2.00163 6.93157 1.83668C6.6967 1.56409 6.3835 1.37053 6.03465 1.28236C5.82356 1.229 5.58975 1.229 5.12213 1.229H3.52949Z" fill="#8AA2FF"/>
@@ -148,14 +165,21 @@
         </el-popover>
       </div>
     </div>
-    <p v-if="!loading && filePageCursor" class="text-brand-300 cursor-pointer my-2" @click="fetchFileListData">{{ $t('all.loadMore') }}</p>
+    <div
+      v-if="!loading && filterQuery.trim() && filteredFiles.length === 0"
+      class="text-center py-8 text-gray-500 border border-t-0 border-gray-200 rounded-b-xl empty-filter-state"
+    >
+      <p class="text-sm">{{ $t('all.noMatchingFiles', { query: filterQuery }) }}</p>
+    </div>
+    <p v-if="!loading && filePageCursor && !filterQuery.trim()" class="text-brand-300 cursor-pointer my-2" @click="fetchFileListData">{{ $t('all.loadMore') }}</p>
     <el-skeleton v-if="loading" class="mt-4" :rows="5" animated />
   </div>
 </template>
 
 <script setup>
-  import { ref, onMounted, watch } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
+  import { Search } from '@element-plus/icons-vue'
 
   import { format } from 'timeago.js';
   import { ElMessage } from "element-plus"
@@ -182,6 +206,15 @@
 
   const breadcrumb = ref([])
   const files = ref([])
+  const filterQuery = ref('')
+
+  const filteredFiles = computed(() => {
+    if (!files.value) return []
+    const query = filterQuery.value.trim().toLowerCase()
+    if (!query) return files.value
+    return files.value.filter((file) => (file.name || '').toLowerCase().includes(query))
+  })
+
   const lastCommit = ref()
   const lastCommitAvatar = ref('https://cube.elemecdn.com/0/88/03b0d39583f48206768a7534e55bcpng.png')
   let prefixPath = document.location.pathname.split('/')[1]
@@ -708,6 +741,7 @@
     }
 
     resetFileNotFound()
+    filterQuery.value = ''
     files.value = []
     commitList.value = []
     loading.value = true
@@ -757,6 +791,7 @@
   const resetInitialization = () => {
     hasInitialized.value = false
     hasFallenBack.value = false
+    filterQuery.value = ''
   }
 
   // 监听 defaultBranch prop 变化（设置页更新了默认分支）

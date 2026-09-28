@@ -153,5 +153,8 @@ export const all = {
   notExist: "中不存在",
   branchNotExist: "分支不存在，請輸入有效的分支名稱",
   useModel: "使用模型",
-  clickForQuickTutorial: "點擊這裡，開始快速教程"
+  clickForQuickTutorial: "點擊這裡，開始快速教程",
+  filterFiles: "按檔案名稱過濾...",
+  filterCount: "{count} / {total} 個檔案",
+  noMatchingFiles: "未找到符合 \"{query}\" 的檔案"
 }
