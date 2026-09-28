@@ -104,18 +104,22 @@ vi.mock('vue-router', () => ({
   })
 }))
 
+import { all as all_en } from '@/locales/en_js/all.js'
+
+const mockT = vi.fn((key, params) => {
+  const keyName = key.replace(/^all\./, '')
+  let text = all_en[keyName] || key
+  if (params) {
+    for (const [k, v] of Object.entries(params)) {
+      text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v)
+    }
+  }
+  return text
+})
+
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
-    t: vi.fn((key, params) => {
-      if (params) {
-        let str = key
-        for (const [k, v] of Object.entries(params)) {
-          str += ` ${k}=${v}`
-        }
-        return str
-      }
-      return key
-    }),
+    t: mockT,
     locale: { value: 'en' }
   })
 }))
@@ -132,6 +136,9 @@ describe('FileList.vue', () => {
         ...props
       },
       global: {
+        mocks: {
+          $t: mockT
+        },
         stubs: {
           BranchDropdown: true,
           CsgButton: true,
@@ -258,5 +265,17 @@ describe('FileList.vue', () => {
 
     wrapper.vm.goToDir('tokenizer')
     expect(wrapper.vm.filterQuery).toBe('')
+  })
+
+  it('keeps loadMore button visible while filtering if filePageCursor exists', async () => {
+    await flushPromises()
+    await nextTick()
+
+    wrapper.vm.filePageCursor = 'cursor-page-2'
+    wrapper.vm.filterQuery = 'config'
+    await nextTick()
+
+    const loadMoreButton = wrapper.find('p.text-brand-300')
+    expect(loadMoreButton.exists()).toBe(true)
   })
 })

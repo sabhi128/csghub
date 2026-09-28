@@ -171,7 +171,7 @@
     >
       <p class="text-sm">{{ $t('all.noMatchingFiles', { query: filterQuery }) }}</p>
     </div>
-    <p v-if="!loading && filePageCursor && !filterQuery.trim()" class="text-brand-300 cursor-pointer my-2" @click="fetchFileListData">{{ $t('all.loadMore') }}</p>
+    <p v-if="!loading && filePageCursor" class="text-brand-300 cursor-pointer my-2" @click="fetchFileListData">{{ $t('all.loadMore') }}</p>
     <el-skeleton v-if="loading" class="mt-4" :rows="5" animated />
   </div>
 </template>
