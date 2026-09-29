@@ -6,12 +6,82 @@
         v-if="datasetInfo"
         :datasetInfo="datasetInfo"
         :namespacePath="namespacePath" />
+      <!-- README Header Toolbar -->
+      <div
+        v-if="!loading && readmeContent"
+        class="flex items-center justify-between pb-3 mb-4 border-b border-gray-200"
+      >
+        <div class="flex items-center gap-2 text-sm text-gray-700 font-medium">
+          <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>{{ repoType === 'skill' ? 'SKILL.md' : 'README.md' }}</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <!-- Segmented Toggle: Preview / Raw -->
+          <div class="inline-flex p-0.5 bg-gray-100 rounded-md border border-gray-200 text-xs">
+            <button
+              type="button"
+              data-testid="readme-preview-btn"
+              @click="viewMode = 'preview'"
+              :class="[
+                'px-2.5 py-1 rounded font-medium transition-all cursor-pointer',
+                viewMode === 'preview'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              {{ $t('all.preview') }}
+            </button>
+            <button
+              type="button"
+              data-testid="readme-raw-btn"
+              @click="viewMode = 'raw'"
+              :class="[
+                'px-2.5 py-1 rounded font-medium transition-all cursor-pointer',
+                viewMode === 'raw'
+                  ? 'bg-white text-gray-900 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              ]"
+            >
+              {{ $t('all.raw') }}
+            </button>
+          </div>
+          <!-- One-click Copy Button -->
+          <button
+            type="button"
+            data-testid="readme-copy-btn"
+            @click="copyReadmeContent"
+            class="flex items-center gap-1.5 px-2.5 py-1 text-xs text-gray-600 hover:text-gray-900 bg-white border border-gray-200 rounded-md hover:bg-gray-50 transition-colors cursor-pointer"
+            :title="$t('all.copy')"
+          >
+            <svg class="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <span>{{ isCopied ? $t('all.copySuccess') : $t('all.copy') }}</span>
+          </button>
+        </div>
+      </div>
+
       <markdown-viewer
         :content="readmeContent"
         :setDefaultText="true"
-        v-if="!loading"
+        v-if="!loading && viewMode === 'preview'"
       >
       </markdown-viewer>
+
+      <!-- Raw Markdown Container -->
+      <div
+        v-if="!loading && viewMode === 'raw'"
+        data-testid="readme-raw-container"
+        class="rounded-md border border-gray-200 bg-gray-50 overflow-hidden font-mono text-xs"
+      >
+        <div class="px-4 py-2 border-b border-gray-200 bg-gray-100 flex items-center justify-between text-xs text-gray-500 font-sans">
+          <span>{{ lineCount }} {{ $t('all.lines') }}</span>
+          <span>{{ charCount }} {{ $t('all.characters') }}</span>
+        </div>
+        <pre class="p-4 overflow-x-auto whitespace-pre font-mono text-xs leading-5 text-gray-800 custom-scrollbar max-h-[700px]"><code>{{ activeReadmeText }}</code></pre>
+      </div>
     </div>
     <div v-if="showSideSection" class="w-[40%] sm:w-[100%] border-l border-gray-200 md:border-l-0 md:border-b md:w-full md:pl-0">
       <div class="pl-6 py-8">
@@ -148,6 +218,50 @@
   const endpoint = ref({})
   const datasetInfo = ref(null)
 
+  const viewMode = ref('preview')
+  const isCopied = ref(false)
+  const activeReadmeText = computed(() => readmeContent.value || '')
+
+  const lineCount = computed(() => {
+    if (!activeReadmeText.value) return 0
+    return activeReadmeText.value.split('\n').length
+  })
+
+  const charCount = computed(() => {
+    return activeReadmeText.value.length
+  })
+
+  const copyReadmeContent = async () => {
+    const text = activeReadmeText.value
+    if (!text) return
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text)
+      } else {
+        throw new Error('Clipboard API unavailable')
+      }
+      isCopied.value = true
+      ElMessage.success(t('all.copySuccess'))
+      setTimeout(() => {
+        isCopied.value = false
+      }, 2000)
+    } catch (e) {
+      if (typeof document !== 'undefined') {
+        const el = document.createElement('textarea')
+        el.value = text
+        document.body.appendChild(el)
+        el.select()
+        document.execCommand('copy')
+        document.body.removeChild(el)
+        isCopied.value = true
+        ElMessage.success(t('all.copySuccess'))
+        setTimeout(() => {
+          isCopied.value = false
+        }, 2000)
+      }
+    }
+  }
+
   const showSideSection = computed(() => {
     return props.repoType !== 'mcp'
   })
@@ -224,17 +338,26 @@
   }
 
   const resolveReadmeContent = () => {
-    const requestUrl = new URL(window.location.href)
-    const pathname = requestUrl.pathname
-    const content = resolveContent(
-      `${props.repoType}s`,
-      rawReadmeContent.value,
-      props.namespacePath,
-      props.currentBranch,
-      pathname,
-      'md'
-    )
-    readmeContent.value = content
+    let pathname = ''
+    try {
+      const requestUrl = new URL(window.location?.href || 'https://hub.opencsg.com')
+      pathname = requestUrl.pathname
+    } catch {
+      pathname = window.location?.pathname || ''
+    }
+    try {
+      const content = resolveContent(
+        `${props.repoType}s`,
+        rawReadmeContent.value,
+        props.namespacePath,
+        props.currentBranch,
+        pathname,
+        'md'
+      )
+      readmeContent.value = content
+    } catch {
+      readmeContent.value = rawReadmeContent.value
+    }
   }
 
   watch(() => props.currentBranch, resolveReadmeContent)
@@ -254,5 +377,16 @@
 
   onBeforeUnmount(() => {
     window.removeEventListener('resize', handleResize);
-});
+  });
+
+  defineExpose({
+    viewMode,
+    isCopied,
+    rawReadmeContent,
+    readmeContent,
+    lineCount,
+    charCount,
+    copyReadmeContent,
+    loading
+  })
 </script>
