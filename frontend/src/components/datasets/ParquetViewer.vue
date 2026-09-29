@@ -78,16 +78,35 @@
         </el-select>
       </div>
     </div>
-    <!-- <div>
+    <div class="flex flex-col gap-2" data-testid="dataset-search-container">
       <el-input
         v-model="nameFilterInput"
         clearable
         size="large"
         :prefix-icon="Search"
-        placeholder="Search this dataset"
-        @change="filterChange"
-        class="w-full" />
-    </div> -->
+        :placeholder="$t('all.searchDataset')"
+        @input="handleInput"
+        @clear="handleClear"
+        @keyup.enter="handleSearchSubmit"
+        class="w-full"
+      />
+      <div
+        v-if="nameFilterInput"
+        class="flex items-center justify-between text-xs text-gray-500 px-1"
+      >
+        <span>
+          {{ totalRows }} {{ $t('all.rows') }} {{ $t('all.matching') }} "<strong class="text-gray-700">{{ nameFilterInput }}</strong>"
+        </span>
+        <button
+          data-testid="clear-search-btn"
+          type="button"
+          @click="handleClear"
+          class="text-brand-600 hover:text-brand-700 underline focus:outline-none cursor-pointer"
+        >
+          {{ $t('all.clearSearch') }}
+        </button>
+      </div>
+    </div>
     <div>
       <el-table :data="tableData"
                 border
@@ -98,6 +117,37 @@
                 class="w-full rounded-md mb-4"
                 row-class-name="row-item-clamp cursor-pointer"
                 cell-class-name="!align-top">
+        <template #empty>
+          <div class="flex flex-col items-center justify-center py-8 text-gray-500">
+            <svg
+              class="w-8 h-8 text-gray-400 mb-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="1.5"
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              />
+            </svg>
+            <p v-if="nameFilterInput" class="text-sm text-gray-600">
+              {{ $t('all.noMatchingRows') }} "<span class="font-medium text-gray-800">{{ nameFilterInput }}</span>"
+            </p>
+            <button
+              v-if="nameFilterInput"
+              type="button"
+              @click="handleClear"
+              class="mt-2 text-xs text-brand-600 hover:text-brand-700 underline focus:outline-none cursor-pointer"
+            >
+              {{ $t('all.clearSearch') }}
+            </button>
+            <p v-else class="text-sm text-gray-500">
+              {{ $t('all.noData') }}
+            </p>
+          </div>
+        </template>
         <el-table-column v-for="column in previewData.columns"
                         :key="column"
                         :prop="column"
@@ -115,7 +165,7 @@
 </template>
 
 <script setup>
-  import { computed, onMounted, ref, watch } from 'vue'
+  import { computed, onMounted, onBeforeUnmount, ref, watch } from 'vue'
   import { ElMessage } from 'element-plus'
   import { Search } from '@element-plus/icons-vue'
   import useFetchApi from '../../packs/useFetchApi'
@@ -209,19 +259,55 @@
     reloadRows()
   }
 
-  const filterChange = () => {
+  let searchTimeout = null
+
+  const handleInput = () => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    searchTimeout = setTimeout(() => {
+      currentPage.value = 1
+      reloadRows()
+    }, 350)
+  }
+
+  const handleClear = () => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    nameFilterInput.value = ''
     currentPage.value = 1
     reloadRows()
   }
 
+  const handleSearchSubmit = () => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+    currentPage.value = 1
+    reloadRows()
+  }
+
+  const filterChange = () => {
+    handleSearchSubmit()
+  }
+
+  onBeforeUnmount(() => {
+    if (searchTimeout) {
+      clearTimeout(searchTimeout)
+    }
+  })
+
   const reloadRows = (childCurrent) => {
-    if(childCurrent){
+    if (childCurrent) {
       currentPage.value = childCurrent
     }
     let url = `datasets/${props.namespacePath}/dataviewer/rows`
     url = url + `?page=${childCurrent ? childCurrent : currentPage.value}`
     url = url + `&per=${perPage.value}`
-    url = url + `&search=${nameFilterInput.value}`
+    if (nameFilterInput.value && nameFilterInput.value.trim()) {
+      url = url + `&search=${encodeURIComponent(nameFilterInput.value.trim())}`
+    }
 
     url = url + `&namespace=${props.namespacePath.split('/')[0]}`
     url = url + `&config=${subset.value}`
@@ -245,6 +331,22 @@
 
   onMounted(() => {
     reloadRows()
+  })
+
+  defineExpose({
+    nameFilterInput,
+    handleInput,
+    handleClear,
+    handleSearchSubmit,
+    filterChange,
+    subset,
+    split,
+    numSubsets,
+    numSplits,
+    tableData,
+    changeSubsetName,
+    changeSplitName,
+    reloadRows
   })
 </script>
 

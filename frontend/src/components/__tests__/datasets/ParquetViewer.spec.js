@@ -1,13 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, flushPromises } from "@vue/test-utils";
 import ParquetViewer from "../../datasets/ParquetViewer.vue";
-
-// Mock vue-i18n
-vi.mock('vue-i18n', () => ({
-  useI18n: () => ({
-    t: (key) => key,
-  })
-}));
 
 const mockRowsData = {
   columns: ["id", "text", "label"],
@@ -19,16 +12,18 @@ const mockRowsData = {
   total: 10
 };
 
-let getApiMockFn = vi.fn().mockImplementation(() => 
-  Promise.resolve({
+let lastFetchUrl = '';
+let getApiMockFn = vi.fn().mockImplementation((url) => {
+  lastFetchUrl = url;
+  return Promise.resolve({
     data: { value: { data: mockRowsData } },
     error: { value: null }
-  })
-);
+  });
+});
 
 vi.mock('../../../packs/useFetchApi', () => ({
-  default: () => ({
-    json: getApiMockFn
+  default: (url) => ({
+    json: () => getApiMockFn(url)
   })
 }));
 
@@ -52,6 +47,7 @@ describe("ParquetViewer", () => {
   let wrapper;
 
   beforeEach(() => {
+    lastFetchUrl = '';
     getApiMockFn.mockClear();
     wrapper = mount(ParquetViewer, {
       props: {
@@ -59,6 +55,10 @@ describe("ParquetViewer", () => {
         namespacePath: "test-namespace/test-dataset"
       }
     });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it("mounts correctly", () => {
@@ -95,5 +95,73 @@ describe("ParquetViewer", () => {
     await wrapper.vm.changeSplitName("train");
     await flushPromises();
     expect(wrapper.vm.split).toBe("train");
+  });
+
+  it("renders search input with localized placeholder", () => {
+    const input = wrapper.find('[data-testid="dataset-search-container"] input');
+    expect(input.exists()).toBe(true);
+    expect(input.attributes('placeholder')).toBe('Search this dataset');
+  });
+
+  it("debounces search input and updates query in API request", async () => {
+    vi.useFakeTimers();
+
+    wrapper.vm.nameFilterInput = 'example';
+    wrapper.vm.handleInput();
+
+    // Not called before debounce timer expires
+    expect(lastFetchUrl).not.toContain('search=example');
+
+    // Advance timers by 350ms
+    vi.advanceTimersByTime(350);
+    await flushPromises();
+
+    expect(lastFetchUrl).toContain('search=example');
+  });
+
+  it("submits search immediately on Enter key", async () => {
+    wrapper.vm.nameFilterInput = 'urgent';
+    wrapper.vm.handleSearchSubmit();
+    await flushPromises();
+
+    expect(lastFetchUrl).toContain('search=urgent');
+  });
+
+  it("clears search query and reloads rows", async () => {
+    wrapper.vm.nameFilterInput = 'temporary';
+    wrapper.vm.handleSearchSubmit();
+    await flushPromises();
+    expect(lastFetchUrl).toContain('search=temporary');
+
+    // Clear search
+    wrapper.vm.handleClear();
+    await flushPromises();
+
+    expect(wrapper.vm.nameFilterInput).toBe('');
+    expect(lastFetchUrl).not.toContain('search=');
+  });
+
+  it("displays search match count indicator when query is present", async () => {
+    wrapper.vm.nameFilterInput = 'positive';
+    await wrapper.vm.$nextTick();
+
+    expect(wrapper.text()).toContain('positive');
+    expect(wrapper.find('[data-testid="clear-search-btn"]').exists()).toBe(true);
+  });
+
+  it("renders empty state when no matching rows are found", async () => {
+    getApiMockFn.mockImplementationOnce(() =>
+      Promise.resolve({
+        data: { value: { data: { columns: ["id", "text"], rows: [], total: 0 } } },
+        error: { value: null }
+      })
+    );
+
+    wrapper.vm.nameFilterInput = 'nonexistent';
+    wrapper.vm.handleSearchSubmit();
+    await flushPromises();
+
+    expect(wrapper.text()).toContain('nonexistent');
+    expect(wrapper.find('.el-table__empty-text').exists()).toBe(true);
   });
 });

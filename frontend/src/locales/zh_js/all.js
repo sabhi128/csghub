@@ -145,5 +145,9 @@ export const all = {
   notExist: "中不存在",
   branchNotExist: "分支不存在，请输入有效的分支名称",
   useModel: "使用模型",
-  clickForQuickTutorial: "点击这里，开始快速教程"
+  clickForQuickTutorial: "点击这里，开始快速教程",
+  searchDataset: "搜索此数据集",
+  noMatchingRows: "未找到匹配行：",
+  clearSearch: "清除搜索",
+  matching: "匹配"
 }
