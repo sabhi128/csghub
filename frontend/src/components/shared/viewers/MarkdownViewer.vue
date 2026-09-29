@@ -1,5 +1,5 @@
 <template>
-  <div class="markdown-body overflow-auto" :class="props.class" v-html="renderedContent"></div>
+  <div ref="markdownRoot" class="markdown-body overflow-auto" :class="props.class" v-html="renderedContent"></div>
 </template>
 
 <script setup>
@@ -92,9 +92,13 @@
     { immediate: true }
   )
 
+  const markdownRoot = ref(null)
+
   const initializeCopyButtons = () => {
     if (typeof document === 'undefined') return
-    document.querySelectorAll('.copy-button').forEach((button) => {
+    const container = markdownRoot.value || document
+    container.querySelectorAll('.copy-button').forEach((button) => {
+      if (button._tippy) return
       tippy(button, {
         content: 'Copied!',
         placement: 'left',

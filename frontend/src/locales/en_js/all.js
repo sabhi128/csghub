@@ -146,5 +146,7 @@ export const all = {
   branchNotExist: "Branch does not exist, please enter a valid branch name",
   useModel: "Use Model",
   clickForQuickTutorial: "Click here to start the quick tutorial",
-  tableOfContents: "On This Page"
+  tableOfContents: "On This Page",
+  expandTableOfContents: "Expand Table of Contents",
+  collapseTableOfContents: "Collapse Table of Contents"
 }

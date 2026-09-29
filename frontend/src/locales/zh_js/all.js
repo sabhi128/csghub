@@ -146,5 +146,7 @@ export const all = {
   branchNotExist: "分支不存在，请输入有效的分支名称",
   useModel: "使用模型",
   clickForQuickTutorial: "点击这里，开始快速教程",
-  tableOfContents: "目录"
+  tableOfContents: "目录",
+  expandTableOfContents: "展开目录",
+  collapseTableOfContents: "折叠目录"
 }

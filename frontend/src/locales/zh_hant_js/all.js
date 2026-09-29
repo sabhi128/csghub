@@ -154,5 +154,7 @@ export const all = {
   branchNotExist: "分支不存在，請輸入有效的分支名稱",
   useModel: "使用模型",
   clickForQuickTutorial: "點擊這裡，開始快速教程",
-  tableOfContents: "目錄"
+  tableOfContents: "目錄",
+  expandTableOfContents: "展開目錄",
+  collapseTableOfContents: "折疊目錄"
 }

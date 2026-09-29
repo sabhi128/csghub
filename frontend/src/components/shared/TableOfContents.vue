@@ -31,7 +31,7 @@
         type="button"
         class="text-gray-400 hover:text-gray-600 p-1 rounded focus:outline-none transition-transform duration-200"
         :class="{ '-rotate-90': isCollapsed }"
-        :aria-label="isCollapsed ? 'Expand Table of Contents' : 'Collapse Table of Contents'"
+        :aria-label="isCollapsed ? $t('all.expandTableOfContents') : $t('all.collapseTableOfContents')"
         data-testid="toc-toggle-btn"
         @click.stop="toggleCollapse"
       >
@@ -54,7 +54,7 @@
     <nav
       v-show="!isCollapsed"
       class="mt-3 space-y-0.5 max-h-[420px] overflow-y-auto pr-1 text-sm custom-scrollbar"
-      aria-label="Table of Contents"
+      :aria-label="$t('all.tableOfContents')"
       data-testid="toc-nav"
     >
       <a
@@ -170,11 +170,23 @@
     }
   }
 
+  const scrollToInitialSlug = (slug) => {
+    const targetSlug = slug || activeSlug.value
+    if (!targetSlug || typeof document === 'undefined') return
+    const el = document.getElementById(targetSlug)
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+  }
+
   watch(
     () => props.headings,
     () => {
       nextTick(() => {
         setupObserver()
+        if (activeSlug.value) {
+          scrollToInitialSlug(activeSlug.value)
+        }
       })
     },
     { deep: true }
@@ -185,6 +197,9 @@
       const initialSlug = window.location.hash.replace(/^#/, '')
       if (initialSlug) {
         activeSlug.value = initialSlug
+        nextTick(() => {
+          scrollToInitialSlug(initialSlug)
+        })
       }
     }
     nextTick(() => {
